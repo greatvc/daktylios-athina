@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="daktylios_banner.png" alt="Δακτύλιος Αθηνών" width="100%">
+  <img src="daktylios_banner.png" alt="Δακτύλιος Αθηνών" width="60%">
 </p>
 
 <h1 align="center">Δακτύλιος Αθηνών - Έλεγχος Διεύθυνσης</h1>
@@ -19,15 +19,7 @@
 
 ## 📺 Video Tutorial
 
-
-
-<p align="center">
-  <a href="https://www.youtube.com/watch?v=VIDEO_ID">
-    <img src="https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg" alt="Δες το tutorial" width="70%">
-  </a>
-</p>
-
-<p align="center"><i>▶️ Πάτα την εικόνα για να δεις το βίντεο</i></p>
+<img width="600" height="148" alt="daktylios_banner" src="https://github.com/user-attachments/assets/bde7ba8e-ddc4-46da-a637-9808e2574b6d" />
 
 ---
 
