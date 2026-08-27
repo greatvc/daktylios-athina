@@ -2,7 +2,7 @@
   <img src="daktylios_banner.png" alt="Δακτύλιος Αθηνών" width="100%">
 </p>
 
-<h1 align="center">🚗 Δακτύλιος Αθηνών — Έλεγχος Διεύθυνσης</h1>
+<h1 align="center">Δακτύλιος Αθηνών - Έλεγχος Διεύθυνσης</h1>
 
 <p align="center">
   <b>Γράψε μια διεύθυνση και δες αμέσως αν βρίσκεται μέσα, έξω ή πάνω στα όρια του Μικρού Δακτυλίου της Αθήνας.</b>
@@ -19,7 +19,7 @@
 
 ## 📺 Video Tutorial
 
-> _Το βίντεο-οδηγός μπαίνει εδώ. Αντικατέστησε το `VIDEO_ID` με το ID του YouTube βίντεο σου._
+
 
 <p align="center">
   <a href="https://www.youtube.com/watch?v=VIDEO_ID">
@@ -214,6 +214,3 @@ daktylios-athina/
 
 ---
 
-<p align="center">
-  <sub>Idea, design, coded &amp; vibe coded by <b>great_vc</b> &nbsp;·&nbsp; 🏷️ v1.0.0</sub>
-</p>
