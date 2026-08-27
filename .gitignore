@@ -1,0 +1,18 @@
+# ── Μυστικά: ΠΟΤΕ στο repo ──────────────────────────────────
+config.php
+.htaccess
+
+# ── Cache που παράγεται στον server ─────────────────────────
+data/cache/*
+!data/cache/.gitkeep
+
+# ── Σκουπίδια συστήματος / editors ─────────────────────────
+.DS_Store
+Thumbs.db
+*.bak
+*.save
+*~
+*.swp
+.idea/
+.vscode/
+*.log
