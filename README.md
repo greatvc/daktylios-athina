@@ -17,9 +17,9 @@
 
 ---
 
-## 📺 Video Tutorial
+## 📺 Video ScreenCast
 
-<img width="600" height="148" alt="daktylios_banner" src="https://github.com/user-attachments/assets/bde7ba8e-ddc4-46da-a637-9808e2574b6d" />
+https://github.com/user-attachments/assets/ab4b4c5f-81cc-4ee3-afe9-b810df0e17a9
 
 ---
 
