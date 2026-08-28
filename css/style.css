@@ -95,7 +95,7 @@ html,body{
   width:40px; height:40px; flex:0 0 40px;
   object-fit:contain;
   /* κενό ~4 χαρακτήρες δεξιά κι αριστερά της εικόνας */
-  margin:6px 14px 0 6px;   /* margin-top:6px για να ευθυγραμμιστεί με το κείμενο */
+  margin:13px 14px 0 6px;   /* margin-top:13px για ευθυγράμμιση με το κείμενο */
 }
 .pill-field{
   flex:1 1 auto; min-width:0;
