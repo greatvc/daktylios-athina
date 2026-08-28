@@ -1,5 +1,5 @@
 <?php
-$DaktyliosVersion = 'v.1.0.0';
+$DaktyliosVersion = 'v.1.0.1';
 
 $configFile = __DIR__ . '/config.php';
 if (!file_exists($configFile)) {
