@@ -7,4 +7,8 @@ return [
     // Προαιρετικό: Map ID για advanced markers (Google Cloud Console -> Map Management).
     // Αν μείνει κενό, το site δουλεύει κανονικά με τα κλασικά markers.
     'google_maps_map_id' => '',
+
+    // Κωδικός πρόσβασης στη σελίδα.
+    // Αν μείνει ΚΕΝΟΣ, το κλείδωμα απενεργοποιείται και η σελίδα είναι ανοιχτή.
+    'site_password' => '',
 ];
