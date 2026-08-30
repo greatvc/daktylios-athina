@@ -67,7 +67,7 @@ html,body{
   position:absolute; z-index:5;
   top:calc(14px + env(safe-area-inset-top));
   /* Αριστερά κάθεται το κουμπί εξόδου του Street View — του αφήνουμε χώρο. */
-  left:78px; right:14px;
+  left:78px; right:78px;
   max-width:700px;
   display:flex; gap:9px; align-items:center;
   pointer-events:none;
@@ -319,7 +319,7 @@ gmp-place-autocomplete{
   /* Το κουμπί καθαρισμού/θέσης να μη χάνεται κάτω από τη μπάρα του iOS. */
   .searchbar{
     top:calc(10px + env(safe-area-inset-top));
-    left:66px; right:10px; max-width:none;
+    left:66px; right:62px; max-width:none;
   }
   .app{ --bar-h:52px }
   .pill-icon{ width:30px; height:30px; flex:0 0 30px }
@@ -333,4 +333,129 @@ gmp-place-autocomplete{
 
 @media (prefers-reduced-motion:reduce){
   *{ transition:none !important; animation:none !important }
+  /* Εξαίρεση: το shake είναι η ΜΟΝΗ ένδειξη λάθους κωδικού — πρέπει να παίζει. */
+  .gate.shake{ animation:gate-shake .5s cubic-bezier(.36,.07,.19,.97) both !important }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ΚΛΕΙΔΩΜΑ ΣΕΛΙΔΑΣ
+   ═══════════════════════════════════════════════════════════════════ */
+body.locked{ overflow:hidden; background:#0E1014 }
+
+.lock-bg{
+  position:fixed; inset:-40px;               /* παραπάνω για να μη φαίνονται άκρες */
+  background-size:cover; background-position:center;
+  filter:blur(7px) saturate(1.08);
+  transform:scale(1.06);
+  z-index:0;
+}
+.lock-veil{
+  position:fixed; inset:0; z-index:1;
+  background:
+    radial-gradient(120% 90% at 50% 45%, rgba(14,16,20,.20), rgba(14,16,20,.62) 75%),
+    linear-gradient(180deg, rgba(11,26,84,.18), rgba(14,16,20,.42));
+}
+
+.lock-stage{
+  position:fixed; inset:0; z-index:2;
+  display:grid; place-items:center;
+  padding:24px;
+}
+
+.gate{
+  display:flex; align-items:center; gap:18px;
+  padding:20px 26px 20px 20px;
+  border-radius:22px;
+  background:linear-gradient(135deg, rgba(38,44,60,.92), rgba(20,23,31,.94));
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 30px 80px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.10);
+  backdrop-filter:blur(8px);
+  animation:gate-in .45s cubic-bezier(.2,.8,.3,1) both;
+}
+@keyframes gate-in{
+  from{ opacity:0; transform:translateY(14px) scale(.97) }
+  to  { opacity:1; transform:none }
+}
+
+.gate-lock{
+  width:58px; height:58px; flex:0 0 58px;
+  object-fit:contain; display:block;
+  filter:drop-shadow(0 4px 10px rgba(0,0,0,.45));
+}
+
+.gate-input{
+  width:min(70vw, 420px);
+  border:0; outline:0; background:transparent;
+  color:#F5F5F0;
+  font-family:"Roboto Condensed",Inter,sans-serif;
+  font-weight:700; font-size:22px; line-height:1.1;
+  letter-spacing:.10em;
+  caret-color:var(--signal);
+  padding:4px 0;
+  border-bottom:2px solid rgba(255,255,255,.18);
+  transition:border-color .2s ease;
+}
+.gate-input:focus{ border-bottom-color:var(--signal) }
+
+/* λάθος κωδικός */
+@keyframes gate-shake{
+  0%,100%{ transform:translateX(0) rotate(0deg) }
+  10%{ transform:translateX(-20px) rotate(-2.2deg) }
+  22%{ transform:translateX(18px)  rotate(2deg) }
+  36%{ transform:translateX(-14px) rotate(-1.5deg) }
+  50%{ transform:translateX(11px)  rotate(1.1deg) }
+  66%{ transform:translateX(-7px)  rotate(-.7deg) }
+  82%{ transform:translateX(4px)   rotate(.4deg) }
+}
+@keyframes gate-flash{
+  0%,100%{ border-color:rgba(255,255,255,.14);
+           box-shadow:0 30px 80px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.10) }
+  25%,60%{ border-color:rgba(255,90,60,.95);
+           box-shadow:0 30px 80px rgba(0,0,0,.55), 0 0 0 4px rgba(255,90,60,.30) }
+}
+.gate.shake{
+  animation:gate-shake .55s cubic-bezier(.36,.07,.19,.97) both,
+            gate-flash .55s ease both;
+}
+.gate.shake .gate-input{ border-bottom-color:rgba(255,90,60,.9) }
+
+/* σωστός κωδικός -> ξεκλείδωμα */
+body.unlocking .gate{
+  animation:gate-out .55s cubic-bezier(.5,0,.75,0) both;
+}
+body.unlocking .lock-bg{ transition:filter .55s ease, transform .55s ease;
+  filter:blur(0) saturate(1.05); transform:scale(1) }
+body.unlocking .lock-veil{ transition:opacity .55s ease; opacity:0 }
+@keyframes gate-out{
+  to{ opacity:0; transform:translateY(-10px) scale(1.06); filter:blur(6px) }
+}
+
+@media (max-width:600px){
+  .gate{ gap:14px; padding:16px 20px 16px 16px; border-radius:18px }
+  .gate-lock{ width:46px; height:46px; flex:0 0 46px }
+  .gate-input{ width:min(62vw, 260px); font-size:20px; letter-spacing:.08em }
+}
+
+/* ═══ Σήμα «ιδιωτική σελίδα» πάνω δεξιά στον χάρτη ═══ */
+.private-badge{
+  position:absolute; z-index:6;
+  top:calc(14px + env(safe-area-inset-top)); right:14px;
+  width:52px; height:52px; object-fit:contain;
+  padding:6px;
+  background:rgba(20,22,26,.82);
+  border:1px solid rgba(255,255,255,.16);
+  border-radius:14px;
+  box-shadow:0 6px 20px rgba(0,0,0,.35);
+  pointer-events:none;
+  opacity:.92;
+}
+@media (max-width:899px){
+  .private-badge{ width:42px; height:42px; padding:5px; border-radius:12px;
+                  top:calc(10px + env(safe-area-inset-top)); right:10px }
+}
+
+/* Χωρίς κωδικό δεν υπάρχει σήμα «ιδιωτική» — η μπάρα παίρνει πίσω τον χώρο. */
+.no-badge .searchbar{ right:14px }
+@media (max-width:899px){
+  .no-badge .searchbar{ right:10px }
 }
