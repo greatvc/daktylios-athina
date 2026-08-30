@@ -2,6 +2,10 @@
 config.php
 .htaccess
 
+# ── Καταγραφή προσβάσεων (περιέχει IP επισκεπτών) ──────────
+data/log.txt
+data/log.old.txt
+
 # ── Cache που παράγεται στον server ─────────────────────────
 data/cache/*
 !data/cache/.gitkeep
