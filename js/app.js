@@ -11,6 +11,16 @@ const APP_VERSION = window.DAKTYLIOS_VERSION || 'v.0.1.3';
 const RING_URL    = `data/daktylios.geojson?v=${encodeURIComponent(APP_VERSION)}`;
 
 const RING_COLOR   = '#E76F51';
+/* Ζώνη εξυπηρέτησης: μέσα στον Δακτύλιο, ή έως 1 km έξω από το όριό του.
+   Μετριέται ως ΑΠΟΣΤΑΣΗ, όχι ως ορθογώνιο — έτσι το περιθώριο είναι ίδιο
+   σε όλες τις πλευρές. Ένα κουτί δεν μπορεί να ξεχωρίσει τον Ν. Κόσμο
+   (338 m) από την Καλλιθέα (1086 m): διαφέρουν 78 m σε γεωγρ. πλάτος. */
+const AREA_LIMIT_M = 1000;
+
+/* Χονδρικό κουτί μόνο για το autocomplete της Google (θέλει ορθογώνιο).
+   Ο ακριβής έλεγχος γίνεται πάντα με την απόσταση. */
+const SEARCH_BOX = { south: 37.949, north: 38.001, west: 23.688, east: 23.776 };
+
 const EDGE_TOL_M   = 20;    // το polygon ακολουθεί τον άξονα του δρόμου
 const FAR_LIMIT_M  = 1000;  // πάνω από αυτό «είσαι απλώς μακριά»
 const GAUGE_IN_M   = 1400;  // πιο εσωτερικό σημείο του Δακτυλίου
@@ -143,6 +153,11 @@ function isInside(lat, lng) {
   return false;
 }
 
+function inServiceArea(lat, lng) {
+  if (isInside(lat, lng)) return true;                       // μέσα στον Δακτύλιο
+  return nearestOnRing(lat, lng).distance <= AREA_LIMIT_M;   // ή κοντά στο όριο
+}
+
 function metresBetween(a, b) {
   return haversine(a.lat, a.lng, b.lat, b.lng);
 }
@@ -248,9 +263,20 @@ async function setupAutocomplete() {
   placesLib = placesLib || await google.maps.importLibrary('places');
   const { PlaceAutocompleteElement } = placesLib;
 
-  autocompleteEl = new PlaceAutocompleteElement();
+  autocompleteEl = new PlaceAutocompleteElement({
+    includedRegionCodes: ['gr'],
+    // Περιοχή αναζήτησης. Προσοχή: το locationRestriction φιλτράρει με
+    // ΕΠΙΚΑΛΥΨΗ, οπότε ένας ολόκληρος δήμος (π.χ. Ίλιον) μπορεί να περάσει
+    // επειδή η έκτασή του ακουμπά το κουτί.
+    locationRestriction: {
+      north: SEARCH_BOX.north, south: SEARCH_BOX.south,
+      east:  SEARCH_BOX.east,  west:  SEARCH_BOX.west
+    }
+    // ΔΕΝ βάζουμε includedPrimaryTypes: το establishment δεν συνδυάζεται με
+    // τους τύπους διευθύνσεων, και χρειαζόμαστε ΚΑΙ POI/εταιρείες.
+    // Ό,τι ξεφύγει το πιάνει ο έλεγχος inServiceArea() στην επιλογή.
+  });
   autocompleteEl.placeholder = 'Γράψε διεύθυνση για έλεγχο στον δακτύλιο…';
-  autocompleteEl.includedRegionCodes = ['gr'];
   $('autocompleteMount').replaceChildren(autocompleteEl);
 
   autocompleteEl.addEventListener('gmp-select', async ({ placePrediction }) => {
@@ -294,6 +320,10 @@ function onMapClick(event) {
   clearAutocomplete();
   const token = evaluate(point, 'Επιλεγμένο σημείο στον χάρτη');
 
+  // Εκτός ζώνης: ούτε reverse geocoding (θα έγραφε διεύθυνση πάνω από το
+  // «ΕΚΤΟΣ ΑΤΤΙΚΗΣ») ούτε χρεώσιμη κλήση στο Geocoding API.
+  if (!inServiceArea(point.lat, point.lng)) return;
+
   geocoder.geocode({ location: point })
     .then((res) => {
       if (token !== requestSeq) return;           // ήρθε νεότερο αίτημα
@@ -311,6 +341,22 @@ function onMapClick(event) {
 
 function evaluate(point, address) {
   const token = ++requestSeq;
+
+  // Εκτός λεκανοπεδίου: κανένα pin, καμία απόσταση, κανένα parking.
+  if (!inServiceArea(point.lat, point.lng)) {
+    clearPin();
+    clearParking();
+    const verdict = $('verdict');
+    verdict.hidden = false;
+    verdict.dataset.state = 'offarea';
+    $('verdictTitle').textContent = 'ΕΚΤΟΣ ΑΤΤΙΚΗΣ';
+    $('verdictAddr').textContent = '';
+    $('metric').hidden  = true;
+    $('parking').hidden = true;
+    setLede('', false);
+    openSheet();
+    return token;
+  }
 
   const nearest = nearestOnRing(point.lat, point.lng);
   const inside = isInside(point.lat, point.lng);

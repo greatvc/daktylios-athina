@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/έκδοση-v1.1.0-F2C230" alt="version">
+  <img src="https://img.shields.io/badge/έκδοση-v1.2.0-F2C230" alt="version">
   <img src="https://img.shields.io/badge/PHP-7.4%2B-777BB4" alt="php">
   <img src="https://img.shields.io/badge/Google%20Maps-Platform-4285F4" alt="google maps">
   <img src="https://img.shields.io/badge/άδεια-MIT-3DD68C" alt="license">

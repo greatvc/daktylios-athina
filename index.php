@@ -1,6 +1,6 @@
 <?php
 session_start();
-$DaktyliosVersion = 'v.1.1.0';
+$DaktyliosVersion = 'v.1.2.0';
 
 $configFile = __DIR__ . '/config.php';
 if (!file_exists($configFile)) {
@@ -25,12 +25,24 @@ if ($googleMapsApiKey === '' || $googleMapsApiKey === 'PASTE_YOUR_GOOGLE_MAPS_AP
    ══════════════════════════════════════════════════════════════════════ */
 
 function daktylios_client_ip(): string {
-    foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'REMOTE_ADDR'] as $key) {
-        if (!empty($_SERVER[$key])) {
-            $ip = trim(explode(',', $_SERVER[$key])[0]);
-            if (filter_var($ip, FILTER_VALIDATE_IP)) return $ip;
+    $keys = ['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'REMOTE_ADDR'];
+
+    // 1η προτεραιότητα: IPv4 — αυτό περιμένουμε πάντα.
+    foreach ($keys as $key) {
+        if (empty($_SERVER[$key])) continue;
+        foreach (explode(',', $_SERVER[$key]) as $candidate) {
+            $ip = trim($candidate);
+            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) return $ip;
         }
     }
+
+    // Εφεδρικά: οτιδήποτε έγκυρο, ώστε να μη χαθεί η καταγραφή σε σπάνια IPv6 επίσκεψη.
+    foreach ($keys as $key) {
+        if (empty($_SERVER[$key])) continue;
+        $ip = trim(explode(',', $_SERVER[$key])[0]);
+        if (filter_var($ip, FILTER_VALIDATE_IP)) return $ip;
+    }
+
     return 'unknown';
 }
 

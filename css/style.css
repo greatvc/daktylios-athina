@@ -459,3 +459,9 @@ body.unlocking .lock-veil{ transition:opacity .55s ease; opacity:0 }
 @media (max-width:899px){
   .no-badge .searchbar{ right:10px }
 }
+
+/* Εκτός λεκανοπεδίου Αττικής — ίδιο κόκκινο ύφος με το «μέσα». */
+.verdict[data-state="offarea"] .dot{
+  background:var(--in); box-shadow:0 0 0 4px rgba(255,107,74,.16);
+}
+.verdict[data-state="offarea"] #verdictTitle{ color:var(--in) }
