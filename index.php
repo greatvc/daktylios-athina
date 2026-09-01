@@ -1,6 +1,10 @@
 <?php
+/* Ο server τρέχει σε UTC. Χωρίς αυτό, το data/log.txt γράφει ώρα 3 ώρες
+   πίσω (ή 2 τον χειμώνα) και οι ειδοποιήσεις δείχνουν λάθος ώρα. */
+date_default_timezone_set('Europe/Athens');
+
 session_start();
-$DaktyliosVersion = 'v.1.2.0';
+$DaktyliosVersion = 'v.1.2.1';
 
 $configFile = __DIR__ . '/config.php';
 if (!file_exists($configFile)) {

@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/έκδοση-v1.2.0-F2C230" alt="version">
+  <img src="https://img.shields.io/badge/έκδοση-v1.2.1-F2C230" alt="version">
   <img src="https://img.shields.io/badge/PHP-7.4%2B-777BB4" alt="php">
   <img src="https://img.shields.io/badge/Google%20Maps-Platform-4285F4" alt="google maps">
   <img src="https://img.shields.io/badge/άδεια-MIT-3DD68C" alt="license">
@@ -111,6 +111,11 @@ https://github.com/user-attachments/assets/ab4b4c5f-81cc-4ee3-afe9-b810df0e17a9
 pass, 2026-08-27 16:56:12, 87.203.14.22
 fail, 2026-08-27 16:58:03, 185.220.101.44
 ```
+
+Η ώρα είναι **ώρα Ελλάδας** (`Europe/Athens`), με αυτόματη προσαρμογή σε
+θερινή/χειμερινή. Ορίζεται από τον κώδικα με `date_default_timezone_set()`,
+γιατί οι περισσότεροι servers τρέχουν σε UTC — χωρίς αυτό το log θα έγραφε
+2 ή 3 ώρες πίσω.
 
 Το αρχείο κάνει αυτόματο **rotate στα 2 MB** σε `data/log.old.txt`, ώστε να μη
 γεμίζει ο δίσκος αν κάποιος σφυροκοπά τη σελίδα.
