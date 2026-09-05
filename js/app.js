@@ -25,8 +25,8 @@ const EDGE_TOL_M   = 20;    // το polygon ακολουθεί τον άξονα
 const GAUGE_IN_M   = 1400;  // πιο εσωτερικό σημείο του Δακτυλίου
 const GAUGE_OUT_M  = 1000;
 
-const PARK_RADIUS_M = 1200;
-const PARK_OFFSET_M = 220;  // πόσο έξω από το όριο ψάχνουμε όταν είμαστε μέσα
+const PARK_RADIUS_M = 2200;  // πιο πλατιά αναζήτηση: με ΜΜΜ αξίζει και πιο μακρινό parking
+const PARK_OFFSET_M = 500;  // πόσο έξω από το όριο ψάχνουμε όταν είμαστε μέσα
 const PARK_MAX      = 20;
 const PARK_CACHE_MAX = 30;
 
@@ -37,7 +37,7 @@ const PARK_CACHE_MAX = 30;
 const WALK_DETOUR   = 1.45;   // πραγματική διαδρομή / ευθεία
 const WALK_M_PER_MIN = 75;    // ~4,5 km/h με διαβάσεις
 
-const PARK_DIAMETER = 32;   // px· ήταν scale 16 -> διάμετρος 32
+const PARK_DIAMETER = 36;   // px στον χάρτη
 const MARKER_MAX_W = 46;
 const MARKER_MAX_H = 54;
 
@@ -556,7 +556,10 @@ async function loadParking(point, state, nearest, token) {
       const result = await Place.searchNearby({
         fields: ['displayName', 'location', 'formattedAddress'],
         locationRestriction: { center, radius: PARK_RADIUS_M },
-        includedPrimaryTypes: ['parking'],
+        // Και οι τρεις τύποι parking της Google, όχι μόνο ο γενικός.
+        // includedTypes (όχι includedPrimaryTypes): πιάνει και όσα έχουν το
+        // parking ως δευτερεύοντα τύπο, π.χ. ξενοδοχείο με γκαράζ.
+        includedTypes: ['parking', 'parking_garage', 'parking_lot'],
         maxResultCount: PARK_MAX,
         rankPreference: SearchNearbyRankPreference.DISTANCE,
         language: 'el',
