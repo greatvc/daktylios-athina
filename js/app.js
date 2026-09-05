@@ -22,7 +22,6 @@ const AREA_LIMIT_M = 1000;
 const SEARCH_BOX = { south: 37.949, north: 38.001, west: 23.688, east: 23.776 };
 
 const EDGE_TOL_M   = 20;    // το polygon ακολουθεί τον άξονα του δρόμου
-const FAR_LIMIT_M  = 1000;  // πάνω από αυτό «είσαι απλώς μακριά»
 const GAUGE_IN_M   = 1400;  // πιο εσωτερικό σημείο του Δακτυλίου
 const GAUGE_OUT_M  = 1000;
 
@@ -30,6 +29,13 @@ const PARK_RADIUS_M = 1200;
 const PARK_OFFSET_M = 220;  // πόσο έξω από το όριο ψάχνουμε όταν είμαστε μέσα
 const PARK_MAX      = 20;
 const PARK_CACHE_MAX = 30;
+
+/* Χονδρική εκτίμηση περπατήματος. Η ευθεία απόσταση δεν είναι διαδρομή:
+   ο συντελεστής καλύπτει στροφές και διαβάσεις, αλλά ΔΕΝ μπορεί να προβλέψει
+   εμπόδια όπως η Συγγρού (εκεί το πραγματικό μπορεί να είναι 3x). Γι' αυτό
+   εμφανίζεται πάντα με «~» και δίπλα υπάρχει link για τον ακριβή χρόνο. */
+const WALK_DETOUR   = 1.45;   // πραγματική διαδρομή / ευθεία
+const WALK_M_PER_MIN = 75;    // ~4,5 km/h με διαβάσεις
 
 const PARK_DIAMETER = 32;   // px· ήταν scale 16 -> διάμετρος 32
 const MARKER_MAX_W = 46;
@@ -44,7 +50,10 @@ let polys = [];               // [[outerRing, hole, …], …] για point-in-p
 let pinMarker = null;
 let parkMarkers = [];
 let infoWindow = null;
+let openInfoKey = null;   // ποιο parking έχει ανοιχτό παράθυρο
 let requestSeq = 0;           // φρουρός για out-of-order απαντήσεις
+let currentPoint = null;      // το σημείο που ελέγχθηκε — προορισμός στις οδηγίες
+let currentAddress = '';
 let suppressMapClick = false; // αγνόησε το επόμενο map-click όταν πατιέται control
 const parkCache = new Map();
 const iconCache = new Map();
@@ -210,6 +219,7 @@ window.initMap = async function () {
 
     geocoder = new google.maps.Geocoder();
     infoWindow = new google.maps.InfoWindow();
+    infoWindow.addListener('closeclick', () => { openInfoKey = null; });
 
     const response = await fetch(RING_URL, { cache: 'force-cache' });
     if (!response.ok) throw new Error(`GeoJSON ${response.status}`);
@@ -329,6 +339,7 @@ function onMapClick(event) {
       if (token !== requestSeq) return;           // ήρθε νεότερο αίτημα
       const address = res.results?.[0]?.formatted_address;
       if (address) {
+        currentAddress = address;
         $('verdictAddr').textContent = address;
         if (pinMarker) {
           if (useAdvancedMarkers) pinMarker.title = address;
@@ -341,6 +352,8 @@ function onMapClick(event) {
 
 function evaluate(point, address) {
   const token = ++requestSeq;
+  currentPoint   = point;
+  currentAddress = address;
 
   // Εκτός λεκανοπεδίου: κανένα pin, καμία απόσταση, κανένα parking.
   if (!inServiceArea(point.lat, point.lng)) {
@@ -361,17 +374,15 @@ function evaluate(point, address) {
   const nearest = nearestOnRing(point.lat, point.lng);
   const inside = isInside(point.lat, point.lng);
   const state = nearest.distance <= EDGE_TOL_M ? 'edge' : (inside ? 'inside' : 'outside');
-  const tooFar = state === 'outside' && nearest.distance > FAR_LIMIT_M;
-
-  renderVerdict(state, address, nearest.distance, tooFar, inside);
+  renderVerdict(state, address, nearest.distance, inside);
   dropPin(point, state, address, token);
-  frameResult(point, nearest, state, tooFar);
-  loadParking(point, state, nearest, tooFar, token);
+  frameResult(point, nearest);
+  loadParking(point, state, nearest, token);
 
   return token;
 }
 
-function renderVerdict(state, address, distance, tooFar, inside) {
+function renderVerdict(state, address, distance, inside) {
   const verdict = $('verdict');
   verdict.hidden = false;
   verdict.dataset.state = state;
@@ -384,17 +395,13 @@ function renderVerdict(state, address, distance, tooFar, inside) {
   $('verdictAddr').textContent = address;
 
   const metric = $('metric');
-  if (tooFar) {
-    metric.hidden = true;
-  } else {
-    metric.hidden = false;
-    let where;
-    if (state === 'edge')      where = 'πάνω στη γραμμή του ορίου';
-    else if (inside)           where = 'μέσα από το όριο';
-    else                       where = 'έξω από το όριο';
-    $('metricNum').textContent  = formatDistance(distance);
-    $('metricWhere').textContent = where;
-  }
+  metric.hidden = false;
+  let where;
+  if (state === 'edge')      where = 'πάνω στη γραμμή του ορίου';
+  else if (inside)           where = 'μέσα από το όριο';
+  else                       where = 'έξω από το όριο';
+  $('metricNum').textContent   = formatDistance(distance);
+  $('metricWhere').textContent = where;
 
   setLede('', false);
   openSheet();
@@ -525,20 +532,22 @@ function clearPin() {
 }
 
 /* ═══ PARKING ═════════════════════════════════════════════════════════ */
-async function loadParking(point, state, nearest, tooFar, token) {
+async function loadParking(point, state, nearest, token) {
   clearParking();
   $('parking').hidden = true;
-  if (tooFar) return;
+
+  /* Το parking έχει νόημα ΜΟΝΟ αν ο προορισμός είναι μέσα στον Δακτύλιο:
+     τότε αφήνεις το αυτοκίνητο έξω και περπατάς. Αν είναι ήδη έξω — ή πάνω
+     στο όριο, όπου τα μέτρα δεν ισχύουν — παρκάρεις κανονικά επί τόπου. */
+  if (state !== 'inside') return;
 
   try {
     placesLib = placesLib || await google.maps.importLibrary('places');
     const { Place, SearchNearbyRankPreference } = placesLib;
 
-    // Μέσα στον Δακτύλιο, ψάχνουμε λίγο ΕΞΩ από το κοντινότερο όριο. Αλλιώς
-    // τα 20 αποτελέσματα γεμίζουν με parking που είναι κι αυτά μέσα.
-    const center = state === 'inside'
-      ? pointBeyondBoundary(point, nearest, PARK_OFFSET_M)
-      : point;
+    // Ψάχνουμε λίγο ΕΞΩ από το κοντινότερο όριο· αλλιώς τα 20 αποτελέσματα
+    // γεμίζουν με parking που είναι κι αυτά μέσα στον Δακτύλιο.
+    const center = pointBeyondBoundary(point, nearest, PARK_OFFSET_M);
 
     const key = `${center.lat.toFixed(4)},${center.lng.toFixed(4)}`;
     let places = parkCache.get(key);
@@ -591,14 +600,55 @@ function addParkingMarker(item, index) {
   parkMarkers.push(marker);
 }
 
-function mapsDirectionsUrl(item) {
-  const query = item.place.formattedAddress || item.place.displayName || `${item.pos.lat},${item.pos.lng}`;
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(query)}`;
+/* Οδηγίες ΜΕ ΤΑ ΠΟΔΙΑ: από το parking (αφετηρία) προς το σημείο που έλεγξες.
+   Δίνουμε συντεταγμένες, όχι κείμενο, ώστε να μη χαθεί τίποτα στη μετάφραση. */
+/* Οδηγίες ΠΡΟΣ το parking με αυτοκίνητο. Χωρίς origin, ώστε το Google Maps
+   να βάλει μόνο του την τοποθεσία σου (ή να την αφήσει κενή για να τη γράψεις). */
+function mapsDriveToParkingUrl(item) {
+  const dest = item.place.formattedAddress
+            || item.place.displayName
+            || `${item.pos.lat},${item.pos.lng}`;
+  return 'https://www.google.com/maps/dir/?api=1'
+       + '&destination=' + encodeURIComponent(dest)
+       + '&travelmode=driving';
+}
+
+function mapsDirectionsUrl(item, mode) {
+  const origin = `${item.pos.lat},${item.pos.lng}`;
+  const dest   = currentPoint
+    ? `${currentPoint.lat},${currentPoint.lng}`
+    : (item.place.formattedAddress || item.place.displayName || origin);
+
+  return 'https://www.google.com/maps/dir/?api=1'
+       + '&origin='      + encodeURIComponent(origin)
+       + '&destination=' + encodeURIComponent(dest)
+       + '&travelmode='  + (mode || 'walking');
+}
+
+function closeParkingInfo() {
+  if (infoWindow) infoWindow.close();
+  openInfoKey = null;
 }
 
 function openParkingInfo(item, marker) {
+  const key = `${item.pos.lat},${item.pos.lng}`;
+
+  // Δεύτερο κλικ στο ίδιο parking κλείνει το παράθυρο.
+  if (openInfoKey === key) { closeParkingInfo(); return; }
+
   const box = document.createElement('div');
   box.className = 'iw';
+
+  // Δικό μας κουμπί κλεισίματος — το προεπιλεγμένο της Google δεν εμφανίζεται
+  // αξιόπιστα όταν δίνουμε custom DOM περιεχόμενο.
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'iw-close';
+  close.setAttribute('aria-label', 'Κλείσιμο');
+  close.title = 'Κλείσιμο';
+  close.textContent = '✕';
+  close.addEventListener('click', (e) => { e.stopPropagation(); closeParkingInfo(); });
+  box.appendChild(close);
 
   const name = document.createElement('strong');
   name.textContent = item.place.displayName || 'Parking';
@@ -607,9 +657,10 @@ function openParkingInfo(item, marker) {
   if (item.place.formattedAddress) {
     const link = document.createElement('a');
     link.className = 'iw-addr';
-    link.href = mapsDirectionsUrl(item);
+    link.href = mapsDriveToParkingUrl(item);
     link.target = '_blank';
     link.rel = 'noopener';
+    link.title = 'Οδηγίες με αυτοκίνητο προς το parking';
     link.textContent = item.place.formattedAddress;
     box.appendChild(link);
   }
@@ -621,6 +672,32 @@ function openParkingInfo(item, marker) {
 
   infoWindow.setContent(box);
   infoWindow.open({ map, anchor: marker });
+  openInfoKey = key;
+}
+
+function makeRouteLink(item, opts) {
+  const a = document.createElement('a');
+  a.className = 'p-route';
+  a.href   = mapsDirectionsUrl(item, opts.mode);
+  a.target = '_blank';
+  a.rel    = 'noopener';
+  a.title  = opts.label;
+  a.setAttribute('aria-label', opts.label);
+
+  const icon = document.createElement('img');
+  icon.src = `${opts.icon}?v=${encodeURIComponent(APP_VERSION)}`;
+  icon.alt = '';
+  a.appendChild(icon);
+
+  if (opts.time) {
+    const t = document.createElement('span');
+    t.className = 'p-route-time';
+    t.textContent = opts.time;
+    a.appendChild(t);
+  }
+
+  a.addEventListener('click', (e) => e.stopPropagation());
+  return a;
 }
 
 function renderParkingList(items) {
@@ -628,7 +705,6 @@ function renderParkingList(items) {
   list.replaceChildren();
 
   $('parking').hidden = false;
-  $('parkingCount').textContent = items.length === 1 ? '1 σημείο' : `${items.length} σημεία`;
 
   for (const item of items) {
     const li = document.createElement('li');
@@ -660,7 +736,23 @@ function renderParkingList(items) {
       if (window.matchMedia('(max-width:899px)').matches) closeSheet();
     });
 
-    li.appendChild(button);
+    // Οδηγίες προς το σημείο — ανοίγουν στο Google Maps με ακριβή χρόνο.
+    const walk = makeRouteLink(item, {
+      mode:  'walking',
+      icon:  'images/walking1.png',
+      label: 'Οδηγίες με τα πόδια',
+      time:  `~${walkMinutes(item.distance)}′`
+    });
+
+    // Με ΜΜΜ δεν εκτιμάμε χρόνο: εξαρτάται από γραμμές, αναμονή και ώρα.
+    const transit = makeRouteLink(item, {
+      mode:  'transit',
+      icon:  'images/bus.png',
+      label: 'Οδηγίες με ΜΜΜ',
+      time:  ''
+    });
+
+    li.append(button, walk, transit);
     list.appendChild(li);
   }
 }
@@ -668,7 +760,7 @@ function renderParkingList(items) {
 function clearParking() {
   parkMarkers.forEach((marker) => removeMarker(marker));
   parkMarkers = [];
-  if (infoWindow) infoWindow.close();
+  closeParkingInfo();
   $('parkingList').replaceChildren();
 }
 
@@ -683,12 +775,7 @@ function mapPadding() {
     : { top: 90, right: 60, bottom: 60, left: 60 };
 }
 
-function frameResult(point, nearest, state, tooFar) {
-  if (tooFar) {
-    map.panTo(point);
-    map.setZoom(15);
-    return;
-  }
+function frameResult(point, nearest) {
   const bounds = new google.maps.LatLngBounds();
   bounds.extend(point);
   bounds.extend({ lat: nearest.lat, lng: nearest.lng });
@@ -755,6 +842,8 @@ function reset() {
   clearPin();
   clearParking();
   clearAutocomplete();
+  currentPoint = null;
+  currentAddress = '';
 
   const verdict = $('verdict');
   verdict.hidden = true;
@@ -773,6 +862,11 @@ function setLede(text, isError) {
   lede.textContent = text;
   lede.hidden = !text;                       // κενό κείμενο = καθόλου κενός χώρος
   lede.classList.toggle('error', !!isError);
+}
+
+function walkMinutes(straightMetres) {
+  const mins = (straightMetres * WALK_DETOUR) / WALK_M_PER_MIN;
+  return Math.max(1, Math.round(mins));
 }
 
 function formatDistance(metres) {

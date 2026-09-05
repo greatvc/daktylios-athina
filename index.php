@@ -4,7 +4,7 @@
 date_default_timezone_set('Europe/Athens');
 
 session_start();
-$DaktyliosVersion = 'v.1.2.1';
+$DaktyliosVersion = 'v.1.3.0';
 
 $configFile = __DIR__ . '/config.php';
 if (!file_exists($configFile)) {
@@ -281,7 +281,6 @@ endif;
         <div class="parking" id="parking" hidden>
           <div class="parking-head">
             <h2>Parking εκτός Δακτυλίου</h2>
-            <span class="count" id="parkingCount">—</span>
           </div>
           <ul class="parking-list" id="parkingList"></ul>
         </div>
