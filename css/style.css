@@ -126,7 +126,7 @@ gmp-place-autocomplete{
   box-shadow:0 2px 6px rgba(0,0,0,.14), 0 14px 32px rgba(0,0,0,.18);
   transition:background .15s ease, transform .15s ease;
 }
-.icon-btn .btn-img{ width:38px; height:38px; object-fit:contain; display:block }
+.icon-btn .btn-img{ width:44px; height:44px; object-fit:contain; display:block }
 .icon-btn .btn-svg{ width:22px; height:22px; fill:currentColor }
 .icon-btn [hidden]{ display:none !important }
 .icon-btn:hover{ background:#FFFDF7 }
@@ -159,12 +159,47 @@ gmp-place-autocomplete{
   background:var(--signal); color:#14161A; border-radius:8px;
   font-family:"Roboto Condensed",sans-serif; font-weight:700; font-size:26px; line-height:1;
 }
-.brand-text{ display:flex; flex-direction:column; min-width:0 }
+.brand-text{ display:flex; flex-direction:column; min-width:0; flex:0 1 auto }
 .brand-text b{
   font-family:"Roboto Condensed",sans-serif; font-weight:700;
-  font-size:27px; letter-spacing:.01em; line-height:1.1;
+  font-size:26px; letter-spacing:.01em; line-height:1.1;
+  white-space:nowrap;            /* μία γραμμή, χωρίς σπάσιμο */
 }
 .brand-text small{ font-size:11.5px; color:var(--muted); letter-spacing:.03em }
+
+/* ── Επιλογή γλώσσας ─────────────────────────────────────────────── */
+.brand{ position:relative }
+.lang-switch{
+  margin-left:auto;
+  display:flex; align-items:center; gap:5px;
+  flex:0 0 auto;
+}
+.lang-btn{
+  width:30px; height:30px;
+  display:grid; place-items:center;
+  padding:3px;
+  background:var(--asphalt-2);
+  border:1px solid var(--hairline);
+  border-radius:10px;
+  cursor:pointer;
+  opacity:.35;                          /* ανενεργή: θολή */
+  filter:grayscale(.55);
+  transition:opacity .18s ease, filter .18s ease,
+             border-color .18s ease, transform .15s ease;
+}
+.lang-btn img{ width:20px; height:20px; object-fit:contain; display:block; border-radius:50% }
+.lang-btn:hover{ opacity:.7; filter:grayscale(.2) }
+.lang-btn.is-active{
+  opacity:1; filter:none;
+  border-color:var(--signal);
+  box-shadow:0 0 0 2px rgba(242,194,48,.18);
+}
+.lang-btn:active{ transform:scale(.93) }
+
+@media (max-width:899px){
+  .lang-btn{ width:28px; height:28px }
+  .lang-btn img{ width:19px; height:19px }
+}
 
 .rail-scroll{
   flex:1 1 auto; min-height:0;
@@ -221,7 +256,7 @@ gmp-place-autocomplete{
 .verdict[data-state="edge"]    #verdictTitle{ color:var(--edge) }
 
 /* ── γραμμή απόστασης ─────────────────────────────────────────────── */
-.metric{ margin:0; display:flex; align-items:baseline; gap:9px; flex-wrap:wrap }
+.metric{ margin:0; display:flex; align-items:center; gap:9px; flex-wrap:wrap }
 .metric[hidden]{ display:none }
 .metric-num{
   font-family:"Roboto Condensed",sans-serif; font-weight:700;
@@ -232,6 +267,24 @@ gmp-place-autocomplete{
 .verdict[data-state="outside"] .metric-num{ color:var(--out) }
 .verdict[data-state="edge"]    .metric-num{ color:var(--edge) }
 .metric-where{ font-size:15px; color:var(--muted) }
+
+/* Κουμπί «Οδηγίες» δίπλα στην απόσταση */
+.dir-btn{
+  margin-left:auto;
+  flex:0 0 auto;
+  display:grid; place-items:center;
+  width:52px; height:52px;
+  padding:0;
+  background:var(--asphalt-2);
+  border:1px solid var(--hairline);
+  border-radius:var(--r-md);
+  text-decoration:none;
+  transition:background .15s ease, border-color .15s ease, transform .15s ease;
+}
+.dir-btn:hover{ background:var(--asphalt-3); border-color:var(--park) }
+.dir-btn:active{ transform:scale(.95) }
+.dir-btn img{ width:40px; height:40px; object-fit:contain; display:block }
+
 
 /* ── parking ──────────────────────────────────────────────────────── */
 .parking{ border-top:1px solid var(--hairline); padding-top:16px }
@@ -379,7 +432,7 @@ gmp-place-autocomplete{
   }
   .app{ --bar-h:52px }
   .pill-icon{ width:30px; height:30px; flex:0 0 30px }
-  .icon-btn .btn-img{ width:26px; height:26px }
+  .icon-btn .btn-img{ width:30px; height:30px }
 }
 
 /* Πολύ κοντές οθόνες σε landscape (iPhone) */
@@ -391,6 +444,8 @@ gmp-place-autocomplete{
   *{ transition:none !important; animation:none !important }
   /* Εξαίρεση: το shake είναι η ΜΟΝΗ ένδειξη λάθους κωδικού — πρέπει να παίζει. */
   .gate.shake{ animation:gate-shake .5s cubic-bezier(.36,.07,.19,.97) both !important }
+  /* Το deny είναι η κορύφωση της οθόνης — παίζει ακόμα και σε reduced motion. */
+  .deny-icon{ animation:deny-approach 1.3s cubic-bezier(.16,.84,.28,1) both !important }
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -521,3 +576,50 @@ body.unlocking .lock-veil{ transition:opacity .55s ease; opacity:0 }
   background:var(--in); box-shadow:0 0 0 4px rgba(255,107,74,.16);
 }
 .verdict[data-state="offarea"] #verdictTitle{ color:var(--in) }
+
+/* ═══════════════════════════════════════════════════════════════════
+   ΟΛΙΚΟ ΚΛΕΙΔΩΜΑ (deny)
+   ═══════════════════════════════════════════════════════════════════ */
+body.denied{ cursor:default; user-select:none }
+body.denied .lock-veil{
+  background:
+    radial-gradient(120% 90% at 50% 45%, rgba(14,16,20,.55), rgba(14,16,20,.90) 72%),
+    linear-gradient(180deg, rgba(80,6,20,.30), rgba(14,16,20,.85));
+}
+
+/* Το κουτί κωδικού υποχωρεί προς τα πίσω, πριν έρθει η εικόνα μπροστά. */
+body.denying .gate{
+  animation:gate-recede .5s cubic-bezier(.5,0,.75,0) both;
+  pointer-events:none;
+}
+@keyframes gate-recede{
+  to{ opacity:0; transform:scale(.72); filter:blur(10px) }
+}
+
+/* Μόνο η εικόνα — έρχεται από το βάθος και σταθεροποιείται μπροστά. */
+.deny-icon{
+  width:min(88vw, 624px); height:auto; display:block;
+  filter:drop-shadow(0 18px 42px rgba(228,0,43,.45));
+  animation:deny-approach 1.3s cubic-bezier(.16,.84,.28,1) both;
+}
+@keyframes deny-approach{
+  0%{
+    opacity:0;
+    transform:scale(.18) translateZ(0);
+    filter:blur(14px) drop-shadow(0 0 0 rgba(228,0,43,0));
+  }
+  55%{ opacity:1 }
+  80%{
+    transform:scale(1.06);
+    filter:blur(0) drop-shadow(0 18px 42px rgba(228,0,43,.45));
+  }
+  100%{
+    opacity:1;
+    transform:scale(1);
+    filter:blur(0) drop-shadow(0 18px 42px rgba(228,0,43,.45));
+  }
+}
+
+@media (max-width:600px){
+  .deny-icon{ width:min(92vw, 408px) }
+}

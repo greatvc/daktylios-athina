@@ -4,7 +4,7 @@
 date_default_timezone_set('Europe/Athens');
 
 session_start();
-$DaktyliosVersion = 'v.1.3.0';
+$DaktyliosVersion = 'v.2.0.0';
 
 $configFile = __DIR__ . '/config.php';
 if (!file_exists($configFile)) {
@@ -81,20 +81,102 @@ function daktylios_log(string $status): void {
 
 $gateEnabled = ($sitePassword !== '');
 
+/* ═══ ΚΛΕΙΔΩΜΑ ΜΕΤΑ ΑΠΟ ΑΠΟΤΥΧΗΜΕΝΕΣ ΠΡΟΣΠΑΘΕΙΕΣ ══════════════════════
+   Ο μετρητής είναι ΚΑΘΟΛΙΚΟΣ, όχι ανά IP ή ανά browser. Γι' αυτό δεν
+   παρακάμπτεται: δεν έχει νόημα να αλλάξει κάποιος IP ή να ανοίξει νέο
+   tab, αφού το όριο μετράει συνολικά. Με το που συμπληρωθεί, δημιουργείται
+   το data/deny.txt και η σελίδα κλειδώνει για όλους μέχρι να το σβήσεις
+   χειροκίνητα από τον server.
+   ══════════════════════════════════════════════════════════════════════ */
+const DAKTYLIOS_MAX_TRIES = 4;
+
+function daktylios_deny_file(): string  { return __DIR__ . '/data/deny.txt'; }
+function daktylios_tries_file(): string { return __DIR__ . '/data/attempts.txt'; }
+
+function daktylios_is_denied(): bool {
+    return is_file(daktylios_deny_file());
+}
+
+function daktylios_tries(): int {
+    $f = daktylios_tries_file();
+    return is_file($f) ? (int)trim((string)@file_get_contents($f)) : 0;
+}
+
+function daktylios_reset_tries(): void {
+    @unlink(daktylios_tries_file());
+}
+
+/** Καταγράφει αποτυχία. Επιστρέφει true αν μόλις κλείδωσε η σελίδα.
+ *
+ *  ΠΡΟΣΟΧΗ: το κλείδωμα κρατιέται από το ΔΙΑΒΑΣΜΑ μέχρι την ΕΓΓΡΑΦΗ.
+ *  Με file_put_contents(LOCK_EX) το κλείδωμα ισχύει μόνο κατά την εγγραφή,
+ *  οπότε δεκάδες ταυτόχρονα requests διάβαζαν την ίδια τιμή και ο μετρητής
+ *  προχωρούσε ελάχιστα — ένα παράλληλο script έπαιρνε πολλαπλάσιες δοκιμές.
+ */
+function daktylios_register_fail(): bool {
+    $file = daktylios_tries_file();
+
+    $fh = @fopen($file, 'c+');
+    if ($fh === false) {
+        error_log('daktylios: αδυναμία ανοίγματος attempts.txt');
+        return false;
+    }
+
+    // Αποκλειστικό κλείδωμα για ΟΛΗ τη διαδικασία read-modify-write.
+    if (!flock($fh, LOCK_EX)) {
+        fclose($fh);
+        error_log('daktylios: αδυναμία flock στο attempts.txt');
+        return false;
+    }
+
+    $n = (int)trim((string)stream_get_contents($fh)) + 1;
+
+    ftruncate($fh, 0);
+    rewind($fh);
+    fwrite($fh, (string)$n);
+    fflush($fh);
+    flock($fh, LOCK_UN);
+    fclose($fh);
+
+    if ($n >= DAKTYLIOS_MAX_TRIES) {
+        if (file_put_contents(daktylios_deny_file(), date('Y-m-d H:i:s') . "\n", LOCK_EX) === false) {
+            error_log('daktylios: ΑΔΥΝΑΜΙΑ δημιουργίας deny.txt');
+        }
+        return true;
+    }
+    return false;
+}
+
+/* Αν λείπει το deny.txt, καθάρισε και τον μετρητή: αλλιώς μετά το
+   χειροκίνητο ξεκλείδωμα η πρώτη λάθος προσπάθεια θα ξανακλείδωνε αμέσως. */
+if ($gateEnabled && !daktylios_is_denied() && daktylios_tries() >= DAKTYLIOS_MAX_TRIES) {
+    daktylios_reset_tries();
+}
+
 // AJAX έλεγχος κωδικού
 if ($gateEnabled && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pw'])) {
     header('Content-Type: application/json; charset=utf-8');
-    $given = (string)$_POST['pw'];
 
+    // Κλειδωμένη: καμία δοκιμή, καμία καταγραφή.
+    if (daktylios_is_denied()) {
+        echo json_encode(['ok' => false, 'denied' => true]); exit;
+    }
+
+    sleep(1);   // ΠΡΙΝ από κάθε έλεγχο, ώστε να μη γλιτώνει ούτε ο κενός κωδικός
+
+    $given = (string)$_POST['pw'];
     if ($given === '') { echo json_encode(['ok' => false]); exit; }
 
     if (hash_equals($sitePassword, $given)) {
+        daktylios_reset_tries();              // καθαρό ξεκίνημα
         $_SESSION['daktylios_pass'] = true;   // μιας χρήσης
         daktylios_log('pass');
         echo json_encode(['ok' => true]); exit;
     }
+
     daktylios_log('fail');
-    echo json_encode(['ok' => false]); exit;
+    $justLocked = daktylios_register_fail();
+    echo json_encode(['ok' => false, 'denied' => $justLocked]); exit;
 }
 
 $unlocked = !$gateEnabled;
@@ -103,7 +185,76 @@ if ($gateEnabled && !empty($_SESSION['daktylios_pass'])) {
     $unlocked = true;
 }
 
+/* ── Αλλαγή γλώσσας χωρίς νέο κωδικό ───────────────────────────────────
+   Κάθε ξεκλειδωμένη σελίδα παράγει ένα token ΜΙΑΣ ΧΡΗΣΗΣ. Μόνο ένα reload
+   που το κουβαλάει σωστά παρακάμπτει το κλείδωμα, και το token καίγεται
+   αμέσως. Έτσι:
+     · F5                          -> ζητάει κωδικό (το token έχει καεί)
+     · νέο tab με το σκέτο link    -> ζητάει κωδικό
+     · χειροκίνητο ?lang=en        -> ζητάει κωδικό (δεν έχει έγκυρο token)
+   ──────────────────────────────────────────────────────────────────── */
+$langSwitch = false;
+if ($gateEnabled && !$unlocked
+    && isset($_GET['lang'], $_GET['t'])
+    && !empty($_SESSION['daktylios_langtok'])
+    && hash_equals($_SESSION['daktylios_langtok'], (string)$_GET['t'])) {
+
+    unset($_SESSION['daktylios_langtok']);    // μιας χρήσης
+    $unlocked   = true;
+    $langSwitch = true;
+}
+
+/* Γλώσσα για το Google Maps: παράμετρος -> cookie -> Accept-Language.
+   Έτσι ακόμα και ο πρώτος ξένος επισκέπτης παίρνει αγγλικό χάρτη. */
+$lang = '';
+if (isset($_GET['lang']) && in_array($_GET['lang'], ['el', 'en'], true)
+    && ($langSwitch || !$gateEnabled)) {     // με token, ή σε ανοιχτή σελίδα
+    $lang = $_GET['lang'];
+}
+if ($lang === '') { $lang = $_COOKIE['daktylios_lang'] ?? ''; }
+if ($lang !== 'el' && $lang !== 'en') {
+    $accept = strtolower($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '');
+    $lang = (strpos($accept, 'el') === 0 || strpos($accept, ',el') !== false) ? 'el' : 'en';
+}
+
+/* Νέο token για την επόμενη αλλαγή γλώσσας. */
+$langToken = '';
+if ($unlocked && $gateEnabled) {
+    $langToken = bin2hex(random_bytes(16));
+    $_SESSION['daktylios_langtok'] = $langToken;
+}
+
 $v = rawurlencode($DaktyliosVersion);
+
+/* ── ΟΛΙΚΟ ΚΛΕΙΔΩΜΑ: τερματίζουμε πριν από οτιδήποτε άλλο ──────────
+   Ούτε φόρμα κωδικού, ούτε χάρτης, ούτε API key, ούτε καταγραφή. */
+if ($gateEnabled && daktylios_is_denied()):
+?>
+<!doctype html>
+<html lang="<?= $lang ?>">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#14161A">
+<title>Δακτύλιος Αθηνών</title>
+<link rel="icon" href="images/favicon.ico?v=<?= $v ?>" sizes="any">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="css/style.css?v=<?= $v ?>">
+</head>
+<body class="locked denied">
+  <div class="lock-bg" style="background-image:url('images/backdrop.jpg?v=<?= $v ?>')" aria-hidden="true"></div>
+  <div class="lock-veil" aria-hidden="true"></div>
+
+  <main class="lock-stage">
+    <img class="deny-icon" src="images/deny.png?v=<?= $v ?>" alt="Access denied" role="alert">
+  </main>
+</body>
+</html>
+<?php
+exit;
+endif;
 
 /* ── Κλειδωμένη σελίδα: σταματάμε ΕΔΩ, πριν φύγει οτιδήποτε του χάρτη ── */
 if (!$unlocked):
@@ -184,6 +335,12 @@ if (!$unlocked):
         setTimeout(() => window.location.reload(), 620);
         return;
       }
+      if (data.denied) {
+        // Το κουτί φεύγει πρώτα, μετά φορτώνει η οθόνη DENY.
+        document.body.classList.add('denying');
+        setTimeout(() => window.location.reload(), 520);
+        return;
+      }
     } catch (_) { /* σφάλμα δικτύου -> το χειριζόμαστε σαν αποτυχία */ }
     busy = false;
     reject();
@@ -200,7 +357,7 @@ exit;
 endif;
 ?>
 <!doctype html>
-<html lang="el">
+<html lang="<?= $lang ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5">
@@ -258,6 +415,15 @@ endif;
       <span class="brand-text">
         <b>Δακτύλιος Αθηνών</b>
       </span>
+
+      <span class="lang-switch">
+        <button type="button" class="lang-btn" data-lang="el" aria-pressed="true">
+          <img src="images/greek.png?v=<?= $v ?>" alt="Ελληνικά">
+        </button>
+        <button type="button" class="lang-btn" data-lang="en" aria-pressed="false">
+          <img src="images/english.png?v=<?= $v ?>" alt="English">
+        </button>
+      </span>
     </div>
 
     <div class="rail-scroll" id="railScroll">
@@ -276,6 +442,10 @@ endif;
         <p class="metric" id="metric" hidden>
           <span class="metric-num" id="metricNum">—</span>
           <span class="metric-where" id="metricWhere">—</span>
+
+          <a class="dir-btn" id="dirBtn" href="#" target="_blank" rel="noopener">
+            <img src="images/directions.png?v=<?= $v ?>" alt="">
+          </a>
         </p>
 
         <div class="parking" id="parking" hidden>
@@ -300,9 +470,11 @@ endif;
 <script>
   window.DAKTYLIOS_VERSION = <?= json_encode($DaktyliosVersion, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
   window.DAKTYLIOS_MAP_ID  = <?= json_encode($googleMapsMapId, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+  window.DAKTYLIOS_LANGTOK = <?= json_encode($langToken, JSON_UNESCAPED_SLASHES) ?>;
 </script>
+<script src="js/i18n.js?v=<?= $v ?>"></script>
 <script src="js/app.js?v=<?= $v ?>"></script>
 <script async defer
-  src="https://maps.googleapis.com/maps/api/js?key=<?= htmlspecialchars($googleMapsApiKey, ENT_QUOTES, 'UTF-8') ?>&callback=initMap&loading=async&libraries=places,marker&language=el&region=GR&v=weekly"></script>
+  src="https://maps.googleapis.com/maps/api/js?key=<?= htmlspecialchars($googleMapsApiKey, ENT_QUOTES, 'UTF-8') ?>&callback=initMap&loading=async&libraries=places,marker&language=<?= $lang ?>&region=GR&v=weekly"></script>
 </body>
 </html>
