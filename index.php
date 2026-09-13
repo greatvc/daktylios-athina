@@ -240,7 +240,7 @@ if ($unlocked && $gateEnabled) {
    Κρατάμε το v.2.1.0 ως δημόσια έκδοση και ανεβάζουμε ΜΟΝΟ το build.
    Κανόνας: κάθε αλλαγή σε css/ ή js/ → +1 στο build (ή νέο $DaktyliosVersion
    και build επιστροφή στο 1). */
-$DaktyliosBuild = 3;
+$DaktyliosBuild = 4;
 
 $v = rawurlencode($DaktyliosVersion . '-b' . $DaktyliosBuild);
 

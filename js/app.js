@@ -17,10 +17,6 @@ const RING_COLOR   = '#E76F51';
    (338 m) από την Καλλιθέα (1086 m): διαφέρουν 78 m σε γεωγρ. πλάτος. */
 const AREA_LIMIT_M = 1000;
 
-/* Γεωεντοπισμός: πάνω από αυτό το σφάλμα δεν δίνουμε ετυμηγορία. Μια λάθος
-   «ΜΕΣΑ ΣΤΟΝ ΔΑΚΤΥΛΙΟ» είναι χειρότερη από καθόλου απάντηση. */
-const GEO_MAX_ACCURACY_M = 150;
-
 /* Χονδρικό κουτί μόνο για το autocomplete της Google (θέλει ορθογώνιο).
    Ο ακριβής έλεγχος γίνεται πάντα με την απόσταση. */
 const SEARCH_BOX = { south: 37.949, north: 38.001, west: 23.688, east: 23.776 };
@@ -839,50 +835,6 @@ function setupChrome() {
     });
   });
 
-  /* Κουμπί «Η τοποθεσία μου». Εμφανίζεται ΜΟΝΟ σε συσκευές αφής
-     (pointer: coarse) — κινητά, tablet, οθόνη αυτοκινήτου. Σε desktop ή
-     laptop με trackpad ο εντοπισμός βασίζεται σε WiFi/IP και είναι
-     αναξιόπιστος, οπότε το κουμπί μένει κρυφό. */
-  const geoBtn = document.getElementById('geoBtn');
-  if (geoBtn && 'geolocation' in navigator &&
-      window.matchMedia('(pointer: coarse)').matches) {
-
-    geoBtn.hidden = false;
-    geoBtn.title = t('geoTitle');
-    geoBtn.setAttribute('aria-label', t('geoTitle'));
-
-    geoBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      suppressMapClick = true;
-      setTimeout(() => { suppressMapClick = false; }, 350);
-
-      if (geoBtn.classList.contains('is-busy')) return;
-      geoBtn.classList.add('is-busy');
-      setLede(t('geoSearching'), false);
-
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          geoBtn.classList.remove('is-busy');
-          const { latitude, longitude, accuracy } = pos.coords;
-
-          // Χαμηλή ακρίβεια -> καμία ετυμηγορία, μόνο ειδοποίηση.
-          if (accuracy > GEO_MAX_ACCURACY_M) {
-            setLede(t('geoVague'), true);
-            return;
-          }
-          clearAutocomplete();
-          evaluate({ lat: latitude, lng: longitude }, t('geoHere'));
-        },
-        (err) => {
-          geoBtn.classList.remove('is-busy');
-          setLede(err.code === err.PERMISSION_DENIED ? t('geoDenied') : t('geoFailed'), true);
-        },
-        { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
-      );
-    });
-  }
-
   // Κουμπί «Κυκλοφορώ;» — ανοίγει το pop-up μονά/ζυγά (js/monazyga.js)
   const plateBtn = document.getElementById('plateBtn');
   if (plateBtn) {
@@ -981,8 +933,6 @@ function applyLanguage() {
   set('.parking-head h2', 'textContent', t('parkingTitle'));
   set('.sr-only', 'textContent', t('sheetToggle'));
   attr('#dirBtn', 'title', t('directionsTip'));
-  attr('#geoBtn', 'title', t('geoTitle'));
-  attr('#geoBtn', 'aria-label', t('geoTitle'));
   attr('#plateBtn', 'title', t('mzBtn'));
   attr('#plateBtn', 'aria-label', t('mzBtnLabel'));
 
