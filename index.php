@@ -412,9 +412,10 @@ endif;
         <img class="pill-icon" src="images/map.png?v=<?= $v ?>" alt="" aria-hidden="true"
              onerror="this.style.display='none'">
 
-        <button id="geoBtn" class="pill-geo" type="button" hidden>
-          <img src="images/location.png?v=<?= $v ?>" alt="" aria-hidden="true">
-        </button>
+        <!-- Το κουμπί «Η τοποθεσία μου» αφαιρέθηκε. Ο εντοπισμός σε κινητό
+             δίνει σωστή πόλη αλλά όχι αξιόπιστη διεύθυνση, και μια λάθος
+             ετυμηγορία ΜΕΣΑ/ΕΚΤΟΣ είναι χειρότερη από καθόλου ετυμηγορία.
+             Μαζί έφυγε και το images/location.png. -->
 
         <div id="autocompleteMount" class="pill-field"></div>
       </div>
