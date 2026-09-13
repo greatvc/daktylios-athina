@@ -1,0 +1,647 @@
+/* =========================================================
+   Μονά – Ζυγά | δακτύλιος
+   ========================================================= */
+
+@font-face {
+  font-family: "Manrope";
+  src: url("../fonts/manrope-var.woff2") format("woff2");
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+/* Γραμματοσειρά πινακίδας: Barlow (OFL) σε ενδιάμεσο βάρος/πλάτος,
+   ρυθμισμένο πάνω σε φωτογραφία πραγματικής πινακίδας (πάχος + πλάτος χαρακτήρων).
+   Ένα βάρος για όλα, ώστε ο browser να μη φτιάχνει ψεύτικα bold. */
+@font-face {
+  font-family: "Plate";
+  src: url("../fonts/gr-plate.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+#mzModal {
+  --mz-asphalt:     #23282f;
+  --mz-asphalt-hi:  #363c46;
+  --card:        #2e343d;
+  --card-edge:   rgba(255, 255, 255, .07);
+  --field:       #252a31;
+  --field-edge:  rgba(255, 255, 255, .11);
+  --pop:         #22272e;
+
+  --ink:         #eceff2;
+  --mz-muted:       #9aa3ae;
+  --faint:       rgba(255, 255, 255, .22);
+
+  --marking:     #ffc928;   /* κίτρινο διαγράμμισης δρόμου */
+  --go:          #3ccb7f;
+  --stop:        #ef4b4b;
+  --plate-ink:   #151515;
+  --plate-red:   #d7141a;
+
+  --ui-font:     "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --plate-font:  "Plate", "Arial Narrow", sans-serif;
+}
+
+
+
+
+
+
+/* δοκιμαστικό κουμπί ανοίγματος (στο project θα είναι το δικό σου) */
+
+
+
+
+/* ---------- Modal / pop up ---------- */
+
+.mz-modal {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;                /* να μην κόβονται dropdown & ημερολόγιο */
+  max-width: none;
+  max-height: none;
+  width: min(560px, calc(100% - 32px));
+  color: var(--ink);
+}
+
+.mz-modal::backdrop {
+  background: rgba(20, 24, 30, .45);
+  backdrop-filter: blur(3px);
+}
+
+/* άνοιγμα: ξεκινά μικρό και μεγαλώνει ομαλά μέχρι το πλήρες μέγεθος */
+.mz-modal[open] { animation: zoom-in .7s cubic-bezier(.16, 1, .3, 1); }
+.mz-modal[open]::backdrop { animation: fade-in .4s ease; }
+
+/* κλείσιμο: μικραίνει και σβήνει */
+.mz-modal.is-closing { animation: zoom-out .24s cubic-bezier(.4, 0, 1, 1) forwards; }
+.mz-modal.is-closing::backdrop { animation: fade-out .24s ease forwards; }
+
+@keyframes zoom-in {
+  from { transform: scale(.12); opacity: 0; }
+  35%  { opacity: 1; }
+  to   { transform: none; opacity: 1; }
+}
+@keyframes zoom-out {
+  from { transform: none; opacity: 1; }
+  to   { transform: scale(.6); opacity: 0; }
+}
+@keyframes fade-in  { from { opacity: 0; } }
+@keyframes fade-out { to   { opacity: 0; } }
+
+/* σε πολύ χαμηλές οθόνες (landscape κινητό) κύλιση μέσα στο modal */
+@media (max-height: 640px) {
+  .mz-modal { overflow-y: auto; max-height: 100dvh; }
+}
+
+/* ---------- Κάρτα ---------- */
+
+.mz-card {
+  position: relative;
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--card-edge);
+  border-radius: 22px;
+  padding: 28px 28px 24px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, .05) inset,
+    0 32px 64px -24px rgba(0, 0, 0, .6);
+}
+
+.mz-card:focus { outline: none; }
+
+.card__head { padding-right: 52px; }
+
+/* X κλεισίματος σε κυκλική κάρτα */
+.card__close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--field-edge);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .06);
+  color: var(--mz-muted);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .25);
+  transition: background-color .18s ease, color .18s ease, border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+.card__close svg { width: 20px; height: 20px; transition: transform .25s ease; }
+
+.card__close:hover {
+  background: var(--marking);
+  border-color: var(--marking);
+  color: #1c1c1c;
+  transform: scale(1.08);
+  box-shadow: 0 0 0 5px rgba(255, 201, 40, .18), 0 6px 16px rgba(0, 0, 0, .35);
+}
+.card__close:hover svg { transform: rotate(90deg); }
+.card__close:active { transform: scale(.96); }
+.card__close:focus-visible { outline: 2px solid var(--marking); outline-offset: 3px; }
+
+.card__head h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -.015em;
+  line-height: 1.2;
+}
+
+.card__sub {
+  margin: 6px 0 0;
+  color: var(--mz-muted);
+  font-size: .95rem;
+  line-height: 1.45;
+}
+
+/* ---------- Πεδία ---------- */
+
+.controls {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.field__label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--mz-muted);
+}
+
+.select,
+.datepick { position: relative; }
+
+.control {
+  width: 100%;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 14px 0 16px;
+  background: var(--field);
+  border: 1px solid var(--field-edge);
+  border-radius: 12px;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+
+.control:hover { border-color: rgba(255, 255, 255, .24); }
+.control[aria-expanded="true"] { border-color: var(--marking); }
+
+.control:focus-visible,
+.select__list:focus-visible,
+.cal__nav:focus-visible,
+.cal__day:focus-visible {
+  outline: 2px solid var(--marking);
+  outline-offset: 2px;
+}
+
+.control__digit {
+  font-family: var(--plate-font);
+  font-weight: 600;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.control__date {
+  font-weight: 700;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .01em;
+}
+
+.control__chev,
+.control__cal {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  color: var(--marking);
+  transition: transform .2s ease;
+}
+
+.control[aria-expanded="true"] .control__chev { transform: rotate(180deg); }
+
+/* ---------- Dropdown ψηφίων ---------- */
+
+.select__list {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  max-height: 250px;              /* ~5½ ψηφία ορατά, τα υπόλοιπα με scroll */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--pop);
+  border: 1px solid var(--field-edge);
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, .5);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 201, 40, .55) transparent;
+}
+
+.select__list::-webkit-scrollbar { width: 6px; }
+.select__list::-webkit-scrollbar-track { background: transparent; margin: 8px 0; }
+.select__list::-webkit-scrollbar-thumb {
+  background: rgba(255, 201, 40, .5);
+  border-radius: 99px;
+}
+
+.opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.opt + .opt { margin-top: 2px; }
+
+.opt.mz-is-active { background: rgba(255, 255, 255, .07); }
+
+.opt__digit {
+  font-family: var(--plate-font);
+  font-weight: 600;
+  font-size: 1.45rem;
+  line-height: 1.1;
+}
+
+.opt[aria-selected="true"] .opt__digit { color: var(--marking); }
+
+/* ---------- Ημερολόγιο ---------- */
+
+.cal {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  right: 0;
+  width: min(300px, calc(100vw - 40px));
+  padding: 12px;
+  background: var(--pop);
+  border: 1px solid var(--field-edge);
+  border-radius: 14px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, .5);
+}
+
+.cal:focus { outline: none; }
+
+.cal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.cal__title {
+  font-weight: 700;
+  font-size: .98rem;
+}
+
+.cal__nav {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--field-edge);
+  border-radius: 9px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.cal__nav svg { width: 18px; height: 18px; }
+.cal__nav:hover:not(:disabled) { background: rgba(255, 255, 255, .07); }
+.cal__nav:disabled { opacity: .25; cursor: not-allowed; }
+
+.cal__week,
+.cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.cal__week span {
+  text-align: center;
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--mz-muted);
+  padding: 4px 0 6px;
+}
+
+.cal__week .is-wknd { color: rgba(255, 255, 255, .22); }
+
+.cal__day {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  color: var(--ink);
+  font: 600 .9rem/1 var(--ui-font);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.cal__day:hover:not(:disabled) { background: rgba(255, 255, 255, .08); }
+
+.cal__day:disabled {
+  color: rgba(255, 255, 255, .18);
+  cursor: default;
+}
+
+.cal__day.is-today { box-shadow: inset 0 0 0 1px rgba(255, 201, 40, .65); }
+
+.cal__day[aria-pressed="true"] {
+  background: var(--marking);
+  color: #1c1c1c;
+  box-shadow: none;
+}
+
+/* ---------- Ημέρα σε κίτρινα γράμματα ---------- */
+
+.daytext {
+  margin: 26px 0 18px;
+  text-align: center;
+  font-size: clamp(1.45rem, 5vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -.01em;
+  line-height: 1.2;
+  color: var(--marking);
+  text-shadow: 0 0 22px rgba(255, 201, 40, .22);
+}
+
+/* ---------- Πινακίδα ---------- */
+
+.plate {
+  position: relative;
+  margin: 0;
+  container-type: inline-size;
+  filter: drop-shadow(0 12px 18px rgba(0, 0, 0, .45));
+}
+
+.plate__img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* η λευκή περιοχή της εικόνας: από 10.3% (μετά τη μπλε λωρίδα) έως 99.5% */
+.plate__text {
+  --ls: .06em;                            /* απόσταση χαρακτήρων όπως στην πραγματική */
+  --lift: .075em;
+  position: absolute;
+  top: 2.3%;
+  bottom: 2.3%;
+  left: 10.3%;
+  right: .5%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: var(--ls);                /* αντισταθμίζει το letter-spacing του τελευταίου χαρακτήρα */
+  padding-bottom: var(--lift);            /* ανεβάζει τους χαρακτήρες στο οπτικό κέντρο */
+  border-radius: 0 1.4cqw 1.4cqw 0;
+  /* ελαφρύ «αλουμίνιο» ώστε να φαίνεται το ανάγλυφο */
+  background: linear-gradient(180deg, rgba(0, 0, 0, .02) 0%, rgba(0, 0, 0, .055) 100%);
+  font-family: var(--plate-font);
+  font-weight: 600;
+  font-size: 19cqw;
+  line-height: 1;
+  letter-spacing: var(--ls);
+  perspective: 400px;
+  white-space: nowrap;
+}
+
+/* όλοι οι χαρακτήρες (και το κόκκινο ψηφίο / ?) σε μία σειρά, στην ίδια γραμμή βάσης */
+.plate__line {
+  display: inline-flex;
+  align-items: baseline;
+}
+.plate__main { display: contents; }
+
+.pc,
+.plate__digit {
+  position: relative;
+  z-index: 0;
+  display: inline-block;
+  color: #1c1d27;                         /* σκούρο μπλε-μαύρο, όπως η βαφή */
+}
+
+/* η παύλα στην πινακίδα είναι κοντή, με περισσότερο αέρα γύρω της */
+.pc--dash { transform: scaleX(.6); }
+
+/* ανάγλυφο: λευκό σκαλοπάτι γύρω από κάθε χαρακτήρα + σκιά κάτω δεξιά */
+.pc::before,
+.plate__digit::before {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  color: #fff;
+  -webkit-text-stroke: .028em #fff;
+  filter:
+    drop-shadow(0 0 .003em rgba(0, 0, 0, .30))
+    drop-shadow(.008em .012em .01em rgba(0, 0, 0, .20));
+}
+
+.plate__digit {
+  color: var(--plate-red);
+  transform-origin: 50% 55%;
+}
+
+.plate__digit.is-empty { color: rgba(215, 20, 26, .28); }
+.plate__digit.is-empty::before { opacity: .45; }
+
+.plate__digit.flip { animation: flip .38s cubic-bezier(.2, .8, .3, 1.2); }
+
+@keyframes flip {
+  from { transform: rotateX(-90deg); opacity: 0; }
+  to   { transform: none;            opacity: 1; }
+}
+
+/* ---------- Αποτέλεσμα ---------- */
+
+.mz-verdict {
+  display: flex;
+  align-items: center;             /* κάθετη στοίχιση εικόνας + κειμένου */
+  justify-content: center;         /* η ομάδα στο κέντρο του πλαισίου */
+  --badge: 96px;
+  --gap: 20px;
+  gap: var(--gap);
+  margin-top: 22px;
+  padding: 16px 20px;
+  border: 1px solid var(--field-edge);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .03);
+  transition: background-color .25s ease, border-color .25s ease;
+  container-type: inline-size;
+}
+
+/* τετράγωνη κάρτα με την εικόνα */
+.verdict__badge {
+  flex: none;
+  width: var(--badge);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  padding: 7px;
+  border: 3px solid var(--field-edge);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .06);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, .35);
+  transition: border-color .25s ease, box-shadow .25s ease, background-color .25s ease;
+}
+
+.verdict__img,
+.verdict__q { grid-area: 1 / 1; }
+
+.verdict__img {
+  display: none;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.verdict__q {
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--mz-muted);
+}
+
+.mz-verdict--go   .verdict__img--go,
+.mz-verdict--stop .verdict__img--stop { display: block; }
+
+.mz-verdict--go   .verdict__q,
+.mz-verdict--stop .verdict__q { display: none; }
+
+.verdict__text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.verdict__title {
+  font-size: min(1.65rem, calc((100cqw - var(--badge) - var(--gap)) / 10));   /* μικραίνει στο κινητό, πάντα σε μία γραμμή */
+  font-weight: 800;
+  letter-spacing: .03em;
+  line-height: 1;
+  white-space: nowrap;
+  text-box: trim-both cap alphabetic;   /* ακριβές οπτικό κεντράρισμα όπου υποστηρίζεται */
+}
+
+.verdict__why {
+  font-size: .9rem;
+  color: var(--mz-muted);
+  line-height: 1.4;
+}
+
+.verdict__why:empty { display: none; }
+
+.mz-verdict--idle .verdict__title {
+  font-size: 1.15rem;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+
+.mz-verdict--go {
+  background: rgba(60, 203, 127, .10);
+  border-color: rgba(60, 203, 127, .38);
+}
+.mz-verdict--go .verdict__badge {
+  background: #f6f6f6;
+  border-color: var(--go);
+  box-shadow: 0 0 0 5px rgba(60, 203, 127, .16), 0 10px 22px rgba(0, 0, 0, .35);
+}
+.mz-verdict--go .verdict__title { color: var(--go); }
+
+.mz-verdict--stop {
+  background: rgba(239, 75, 75, .10);
+  border-color: rgba(239, 75, 75, .40);
+}
+.mz-verdict--stop .verdict__badge {
+  background: #f6f6f6;
+  border-color: var(--stop);
+  box-shadow: 0 0 0 5px rgba(239, 75, 75, .16), 0 10px 22px rgba(0, 0, 0, .35);
+}
+.mz-verdict--stop .verdict__title { color: var(--stop); }
+
+.mz-verdict.pop .verdict__badge { animation: pop .38s cubic-bezier(.2, .9, .3, 1.3); }
+
+@keyframes pop {
+  from { transform: scale(.7) rotate(-4deg); }
+  to   { transform: none; }
+}
+
+/* ---------- Κινητό ---------- */
+
+@media (max-width: 440px) {
+  .mz-card { padding: 22px 18px 18px; border-radius: 18px; }
+  .card__close { top: 14px; right: 14px; width: 38px; height: 38px; }
+  .card__head { padding-right: 44px; }
+  .mz-card:focus { outline: none; }
+
+.card__head { padding-right: 52px; }
+
+/* X κλεισίματος σε κυκλική κάρτα */
+.card__close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--field-edge);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .06);
+  color: var(--mz-muted);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .25);
+  transition: background-color .18s ease, color .18s ease, border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+.card__close svg { width: 20px; height: 20px; transition: transform .25s ease; }
+
+.card__close:hover {
+  background: var(--marking);
+  border-color: var(--marking);
+  color: #1c1c1c;
+  transform: scale(1.08);
+  box-shadow: 0 0 0 5px rgba(255, 201, 40, .18), 0 6px 16px rgba(0, 0, 0, .35);
+}
+.card__close:hover svg { transform: rotate(90deg); }
+.card__close:active { transform: scale(.96); }
+.card__close:focus-visible { outline: 2px solid var(--marking); outline-offset: 3px; }
+
+.card__head h1 { font-size: 1.3rem; }
+  .controls { grid-template-columns: 1fr 1.35fr; gap: 10px; }
+  .control { padding: 0 10px 0 12px; }
+  .control__date { font-size: .98rem; }
+  .mz-verdict { --badge: 72px; --gap: 14px; padding: 14px; }
+  .verdict__badge { padding: 5px; border-radius: 15px; }
+}
+
+@media (max-width: 340px) {
+  .controls { grid-template-columns: 1fr; }
+  .cal { left: 0; right: auto; }
+}

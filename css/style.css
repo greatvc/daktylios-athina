@@ -66,8 +66,9 @@ html,body{
 .searchbar{
   position:absolute; z-index:5;
   top:calc(14px + env(safe-area-inset-top));
-  /* Αριστερά κάθεται το κουμπί εξόδου του Street View — του αφήνουμε χώρο. */
-  left:78px; right:78px;
+  /* Το κουμπί εξόδου του Street View δεν μας ενοχλεί: η μπάρα κρύβεται
+     ολόκληρη όταν ανοίγει το Street View (βλ. .app.streetview παρακάτω). */
+  left:14px; right:78px;
   max-width:700px;
   display:flex; gap:9px; align-items:center;
   pointer-events:none;
@@ -95,8 +96,37 @@ html,body{
   width:40px; height:40px; flex:0 0 40px;
   object-fit:contain;
   /* κενό ~4 χαρακτήρες δεξιά κι αριστερά της εικόνας */
-  margin:13px 14px 0 6px;   /* margin-top:13px για ευθυγράμμιση με το κείμενο */
+  /* Το margin-top:13px αφαιρέθηκε: υπήρχε για να «κατέβει» το εικονίδιο όσο
+     και το βουλιαγμένο κείμενο της Google. Τώρα που το κείμενο κεντράρεται
+     σωστά (βλ. #autocompleteMount), το εικονίδιο κεντράρεται κι αυτό μόνο του. */
+  margin:0 14px 0 6px;
 }
+/* Κουμπί «Η τοποθεσία μου» μέσα στο pill, αριστερά από το πεδίο.
+   Κρυφό εξ ορισμού — το εμφανίζει η JS μόνο σε συσκευές αφής. */
+.pill-geo{
+  flex:0 0 auto;
+  display:grid; place-items:center;
+  width:38px; height:38px;
+  margin-right:10px;
+  padding:0; border:0;
+  background:transparent;
+  border-radius:50%;
+  cursor:pointer;
+  transition:background .15s ease, transform .15s ease;
+}
+.pill-geo img{ width:24px; height:24px; object-fit:contain; display:block }
+.pill-geo:hover{ background:rgba(20,22,26,.08) }
+.pill-geo:active{ transform:scale(.9) }
+.pill-geo[hidden]{ display:none !important }
+
+/* όσο ψάχνει: απαλό πάλσιμο */
+.pill-geo.is-busy{ pointer-events:none }
+.pill-geo.is-busy img{ animation:geo-pulse 1s ease-in-out infinite }
+@keyframes geo-pulse{
+  0%,100%{ opacity:1;  transform:scale(1) }
+  50%    { opacity:.45; transform:scale(.86) }
+}
+
 .pill-field{
   flex:1 1 auto; min-width:0;
   align-self:stretch;
@@ -105,10 +135,25 @@ html,body{
 
 /* ΔΕΝ στιλάρουμε το στοιχείο της Google — έχει δικό του input, πλαίσιο και
    εικονίδια. Το αφήνουμε ελεύθερο· το χαρτί-φόντο του pill φαίνεται γύρω του
-   χάρη στο padding του .pill. */
-#autocompleteMount,
+   χάρη στο padding του .pill.
+
+   ΑΛΛΑ το mount ΠΡΕΠΕΙ να κεντράρει το παιδί του. Το control της Google είναι
+   ~50px ψηλό και ΔΕΝ χωράει στο content box του pill (desktop 76−34−2 = 40px,
+   κινητό 52−34−2 = 16px, γιατί το padding των 17px μένει ίδιο ενώ το --bar-h
+   πέφτει). Ως `display:block` ξεκινούσε από την ΚΟΡΥΦΗ και ξεχείλιζε ολόκληρο
+   προς τα κάτω: το κείμενο έπεφτε ~17px κάτω από το κέντρο σε κάθε οθόνη
+   <900px (iPhone, iPad portrait, Android, στενό desktop παράθυρο) και ~5px σε
+   desktop. Με flex + align-items:center το ξεχείλισμα μοιράζεται συμμετρικά
+   και το κείμενο κάθεται στο οπτικό κέντρο του pill, ό,τι ύψος κι αν έχει.
+   ΜΗΝ το ξαναγυρίσεις σε block. */
+#autocompleteMount{
+  display:flex; align-items:center;
+  width:100%; min-width:0;
+  background:transparent;
+  color-scheme:light;
+}
 gmp-place-autocomplete{
-  display:block; width:100%; min-width:0;
+  display:block; flex:1 1 auto; min-width:0;
   background:transparent;
   color-scheme:light;
 }
@@ -127,6 +172,8 @@ gmp-place-autocomplete{
   transition:background .15s ease, transform .15s ease;
 }
 .icon-btn .btn-img{ width:44px; height:44px; object-fit:contain; display:block }
+/* Το check.png είναι οπτικά μικρότερο — του δίνουμε 2px παραπάνω ανά πλευρά. */
+#plateBtn .btn-img{ width:48px; height:48px }
 .icon-btn .btn-svg{ width:22px; height:22px; fill:currentColor }
 .icon-btn [hidden]{ display:none !important }
 .icon-btn:hover{ background:#FFFDF7 }
@@ -428,11 +475,12 @@ gmp-place-autocomplete{
   /* Το κουμπί καθαρισμού/θέσης να μη χάνεται κάτω από τη μπάρα του iOS. */
   .searchbar{
     top:calc(10px + env(safe-area-inset-top));
-    left:66px; right:62px; max-width:none;
+    left:10px; right:62px; max-width:none;
   }
   .app{ --bar-h:52px }
   .pill-icon{ width:30px; height:30px; flex:0 0 30px }
   .icon-btn .btn-img{ width:30px; height:30px }
+  #plateBtn .btn-img{ width:34px; height:34px }
 }
 
 /* Πολύ κοντές οθόνες σε landscape (iPhone) */

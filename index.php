@@ -4,7 +4,7 @@
 date_default_timezone_set('Europe/Athens');
 
 session_start();
-$DaktyliosVersion = 'v.2.0.0';
+$DaktyliosVersion = 'v.2.1.0';
 
 $configFile = __DIR__ . '/config.php';
 if (!file_exists($configFile)) {
@@ -16,6 +16,16 @@ $config = require $configFile;
 $googleMapsApiKey = $config['google_maps_api_key'] ?? '';
 $googleMapsMapId  = $config['google_maps_map_id'] ?? '';   // προαιρετικό — για advanced markers
 $sitePassword     = (string)($config['site_password'] ?? '');
+
+/* Προαιρετικό: προεπιλεγμένο τελευταίο ψηφίο πινακίδας για την κάρτα μονά/ζυγά.
+   Δεκτό μόνο ΕΝΑ ψηφίο 0-9. Οτιδήποτε άλλο (κενό, γράμμα, '12', true) γίνεται
+   null — η κάρτα ξεκινά με «—», χωρίς μήνυμα λάθους. Σκόπιμα σιωπηλό: το
+   config δεν είναι φόρμα χρήστη, και ένα λάθος εδώ δεν πρέπει να σπάει σελίδα. */
+$plateRaw   = (isset($config['plate_last_digit'])
+               && (is_string($config['plate_last_digit']) || is_int($config['plate_last_digit'])))
+            ? trim((string)$config['plate_last_digit'])
+            : '';   // το true θα γινόταν '1' με σκέτο (string) — γι' αυτό ρητοί τύποι
+$plateDigit = preg_match('/^[0-9]$/', $plateRaw) ? (int)$plateRaw : null;
 
 if ($googleMapsApiKey === '' || $googleMapsApiKey === 'PASTE_YOUR_GOOGLE_MAPS_API_KEY_HERE') {
     http_response_code(500);
@@ -224,7 +234,15 @@ if ($unlocked && $gateEnabled) {
     $_SESSION['daktylios_langtok'] = $langToken;
 }
 
-$v = rawurlencode($DaktyliosVersion);
+/* Το query string των assets ΔΕΝ είναι υποχρεωτικά ίδιο με την έκδοση που
+   δείχνει το footer. Το v.2.1.0 έχει ήδη σερβιριστεί live, οπότε μια διόρθωση
+   σε css/ ή js/ χωρίς αλλαγή εδώ θα σέρβιρε cached αρχεία στα κινητά.
+   Κρατάμε το v.2.1.0 ως δημόσια έκδοση και ανεβάζουμε ΜΟΝΟ το build.
+   Κανόνας: κάθε αλλαγή σε css/ ή js/ → +1 στο build (ή νέο $DaktyliosVersion
+   και build επιστροφή στο 1). */
+$DaktyliosBuild = 3;
+
+$v = rawurlencode($DaktyliosVersion . '-b' . $DaktyliosBuild);
 
 /* ── ΟΛΙΚΟ ΚΛΕΙΔΩΜΑ: τερματίζουμε πριν από οτιδήποτε άλλο ──────────
    Ούτε φόρμα κωδικού, ούτε χάρτης, ούτε API key, ούτε καταγραφή. */
@@ -372,6 +390,9 @@ endif;
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="css/style.css?v=<?= $v ?>">
+<link rel="stylesheet" href="css/monazyga.css?v=<?= $v ?>">
+<link rel="preload" href="fonts/manrope-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/gr-plate.woff2" as="font" type="font/woff2" crossorigin>
 </head>
 
 <body<?= $gateEnabled ? '' : ' class="no-badge"' ?>>
@@ -390,6 +411,11 @@ endif;
       <div class="pill">
         <img class="pill-icon" src="images/map.png?v=<?= $v ?>" alt="" aria-hidden="true"
              onerror="this.style.display='none'">
+
+        <button id="geoBtn" class="pill-geo" type="button" hidden>
+          <img src="images/location.png?v=<?= $v ?>" alt="" aria-hidden="true">
+        </button>
+
         <div id="autocompleteMount" class="pill-field"></div>
       </div>
 
@@ -398,6 +424,11 @@ endif;
         <img class="btn-img" src="images/reset.png?v=<?= $v ?>" alt="" aria-hidden="true"
              onerror="this.hidden=true; this.nextElementSibling.hidden=false;">
         <svg class="btn-svg" viewBox="0 0 24 24" hidden aria-hidden="true"><path d="M17.65 6.35A8 8 0 1 0 19.73 14h-2.09A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4z"/></svg>
+      </button>
+
+      <button id="plateBtn" class="icon-btn" type="button"
+              title="Κυκλοφορώ στον δακτύλιο;" aria-label="Έλεγχος πινακίδας">
+        <img class="btn-img" src="images/check.png?v=<?= $v ?>" alt="" aria-hidden="true">
       </button>
     </div>
   </div>
@@ -471,10 +502,108 @@ endif;
   window.DAKTYLIOS_VERSION = <?= json_encode($DaktyliosVersion, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
   window.DAKTYLIOS_MAP_ID  = <?= json_encode($googleMapsMapId, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
   window.DAKTYLIOS_LANGTOK = <?= json_encode($langToken, JSON_UNESCAPED_SLASHES) ?>;
+  /* null όταν δεν έχει οριστεί έγκυρο ψηφίο στο config.php — η κάρτα μονά/ζυγά
+     τότε ξεκινά κενή, όπως πριν. */
+  window.DAKTYLIOS_PLATE_DIGIT = <?= json_encode($plateDigit) ?>;
 </script>
 <script src="js/i18n.js?v=<?= $v ?>"></script>
 <script src="js/app.js?v=<?= $v ?>"></script>
 <script async defer
   src="https://maps.googleapis.com/maps/api/js?key=<?= htmlspecialchars($googleMapsApiKey, ENT_QUOTES, 'UTF-8') ?>&callback=initMap&loading=async&libraries=places,marker&language=<?= $lang ?>&region=GR&v=weekly"></script>
+<dialog class="mz-modal" id="mzModal" aria-labelledby="mzTitle">
+    <section class="mz-card" tabindex="-1" autofocus>
+
+      <button type="button" class="card__close" id="closeBtn" aria-label="Κλείσιμο">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 7l10 10M17 7L7 17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+        </svg>
+      </button>
+
+      <header class="card__head">
+        <h1 id="mzTitle">Κυκλοφορώ στον δακτύλιο;</h1>
+        <p class="card__sub" id="mzSubtitleEl">Διάλεξε το τελευταίο ψηφίο της πινακίδας και την ημέρα.</p>
+      </header>
+
+      <div class="controls">
+
+        <!-- Τελευταίο ψηφίο -->
+        <div class="field">
+          <span class="field__label" id="digitLabel">Τελευταίο ψηφίο</span>
+          <div class="select" id="digitSelect">
+            <button type="button" class="control" id="digitBtn"
+                    aria-haspopup="listbox" aria-expanded="false"
+                    aria-labelledby="digitLabel digitValue">
+              <span class="control__digit" id="digitValue">–</span>
+              <svg class="control__chev" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <ul class="select__list" id="digitList" role="listbox" tabindex="-1"
+                aria-labelledby="digitLabel" hidden></ul>
+          </div>
+        </div>
+
+        <!-- Ημερομηνία -->
+        <div class="field">
+          <span class="field__label" id="dateLabel">Ημερομηνία</span>
+          <div class="datepick" id="datePick">
+            <button type="button" class="control" id="dateBtn"
+                    aria-haspopup="dialog" aria-expanded="false"
+                    aria-labelledby="dateLabel dateValue">
+              <span class="control__date" id="dateValue"></span>
+              <svg class="control__cal" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3.5" y="5" width="17" height="15.5" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M3.5 10h17M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <rect x="7" y="13" width="3.2" height="3.2" rx=".8" fill="currentColor"/>
+              </svg>
+            </button>
+
+            <div class="cal" id="cal" role="dialog" aria-modal="false" aria-labelledby="calTitle" tabindex="-1" hidden>
+              <div class="cal__head">
+                <button type="button" class="cal__nav" id="calPrev" aria-label="Προηγούμενος μήνας">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <span class="cal__title" id="calTitle"></span>
+                <button type="button" class="cal__nav" id="calNext" aria-label="Επόμενος μήνας">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+              </div>
+              <div class="cal__week" aria-hidden="true">
+                <span>Δε</span><span>Τρ</span><span>Τε</span><span>Πε</span><span>Πα</span><span class="is-wknd">Σα</span><span class="is-wknd">Κυ</span>
+              </div>
+              <div class="cal__grid" id="calGrid"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <p class="daytext" id="dayText" aria-live="polite"></p>
+
+      <figure class="plate" id="plate">
+        <img class="plate__img" src="images/plate.png?v=<?= $v ?>" alt="" width="2000" height="432">
+        <div class="plate__text">
+          <span class="plate__line"><span class="plate__main" id="plateMain"></span><span class="plate__digit is-empty" id="plateDigit">?</span></span>
+        </div>
+      </figure>
+
+      <div class="mz-verdict mz-verdict--idle" id="mzVerdict" aria-live="polite">
+        <span class="verdict__badge" aria-hidden="true">
+          <img class="verdict__img verdict__img--go"   src="images/entry.webp?v=<?= $v ?>"   alt="" width="288" height="288">
+          <img class="verdict__img verdict__img--stop" src="images/noentry.webp?v=<?= $v ?>" alt="" width="288" height="288">
+          <span class="verdict__q">?</span>
+        </span>
+        <div class="verdict__text">
+          <strong class="verdict__title" id="mzVerdictTitle"></strong>
+          <span class="verdict__why" id="mzVerdictWhy"></span>
+        </div>
+      </div>
+
+    </section>
+  </dialog>
+
+
+<script src="js/monazyga.js?v=<?= $v ?>" defer></script>
+
 </body>
 </html>
