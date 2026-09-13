@@ -21,3 +21,4 @@ Thumbs.db
 .idea/
 .vscode/
 *.log
+check-github.sh
