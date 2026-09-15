@@ -4,7 +4,7 @@
 date_default_timezone_set('Europe/Athens');
 
 session_start();
-$DaktyliosVersion = 'v.2.1.0';
+$DaktyliosVersion = 'v.2.1.1';
 
 $configFile = __DIR__ . '/config.php';
 if (!file_exists($configFile)) {
@@ -240,7 +240,7 @@ if ($unlocked && $gateEnabled) {
    Κρατάμε το v.2.1.0 ως δημόσια έκδοση και ανεβάζουμε ΜΟΝΟ το build.
    Κανόνας: κάθε αλλαγή σε css/ ή js/ → +1 στο build (ή νέο $DaktyliosVersion
    και build επιστροφή στο 1). */
-$DaktyliosBuild = 4;
+$DaktyliosBuild = 1;
 
 $v = rawurlencode($DaktyliosVersion . '-b' . $DaktyliosBuild);
 
