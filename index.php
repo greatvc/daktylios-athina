@@ -4,7 +4,7 @@
 date_default_timezone_set('Europe/Athens');
 
 session_start();
-$DaktyliosVersion = 'v.2.1.1';
+$DaktyliosVersion = 'v.2.1.2';
 
 $configFile = __DIR__ . '/config.php';
 if (!file_exists($configFile)) {
@@ -257,6 +257,7 @@ if ($gateEnabled && daktylios_is_denied()):
 <meta name="theme-color" content="#14161A">
 <title>Δακτύλιος Αθηνών</title>
 <link rel="icon" href="images/favicon.ico?v=<?= $v ?>" sizes="any">
+<link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon.png?v=<?= $v ?>">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="css/style.css?v=<?= $v ?>">
@@ -286,6 +287,7 @@ if (!$unlocked):
 <meta name="theme-color" content="#14161A">
 <title>Δακτύλιος Αθηνών</title>
 <link rel="icon" href="images/favicon.ico?v=<?= $v ?>" sizes="any">
+<link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon.png?v=<?= $v ?>">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="css/style.css?v=<?= $v ?>">
@@ -386,7 +388,7 @@ endif;
 <title>Δακτύλιος Αθηνών</title>
 
 <link rel="icon" href="images/favicon.ico?v=<?= $v ?>" sizes="any">
-<link rel="apple-touch-icon" href="images/redcar.png?v=<?= $v ?>">
+<link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon.png?v=<?= $v ?>">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="css/style.css?v=<?= $v ?>">
